@@ -13,7 +13,11 @@ volumes:
   rabbit_data: {}
 
 services:
-  # ── Databases ─────────────────────────────────────────────────
+
+  # ───────────────────────────────
+  # DATABASES
+  # ───────────────────────────────
+
   postgres-auth:
     image: postgres:16-alpine
     container_name: pg-auth
@@ -74,7 +78,10 @@ services:
       interval: 10s
       retries: 5
 
-  # ── Messaging + Cache ──────────────────────────────────────────
+  # ───────────────────────────────
+  # REDIS + RABBITMQ
+  # ───────────────────────────────
+
   redis:
     image: redis:7-alpine
     container_name: cloudopshire-redis
@@ -82,10 +89,6 @@ services:
     volumes:
       - redis_data:/data
     networks: [cloudopshire-net]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      retries: 3
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -95,37 +98,28 @@ services:
       RABBITMQ_DEFAULT_PASS: admin
     ports:
       - "15672:15672"
+      - "5672:5672"
     volumes:
       - rabbit_data:/var/lib/rabbitmq
     networks: [cloudopshire-net]
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
-      retries: 5
 
-  # ── Spring Cloud ───────────────────────────────────────────────
+  # ───────────────────────────────
+  # SPRING CLOUD CORE
+  # ───────────────────────────────
   service-registry:
-    build:
-      context: ../../CloudOpsHire-backend/service-registry
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/service-registry:latest
     container_name: service-registry
     ports:
       - "8761:8761"
     networks: [cloudopshire-net]
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -qO- http://localhost:8761/actuator/health || exit 1",
-        ]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
 
   api-gateway:
-    build:
-      context: ../../CloudOpsHire-backend/api-gateway
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/api-gateway:latest
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -133,15 +127,15 @@ services:
       EUREKA_URL: http://service-registry:8761/eureka/
       JWT_SECRET: my-super-secret-key-for-cloudopshire-platform-2024
     depends_on:
-      service-registry:
-        condition: service_healthy
+      - service-registry
     networks: [cloudopshire-net]
 
-  # ── Backend Services ───────────────────────────────────────────
+  # ───────────────────────────────
+  # MICROSERVICES (7 SERVICES)
+  # ───────────────────────────────
+
   auth-service:
-    build:
-      context: ../../CloudOpsHire-backend/auth-service
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/auth-service:latest
     container_name: auth-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
@@ -150,16 +144,12 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
       JWT_SECRET: my-super-secret-key-for-cloudopshire-platform-2024
     depends_on:
-      postgres-auth:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      - postgres-auth
+      - service-registry
     networks: [cloudopshire-net]
 
   user-service:
-    build:
-      context: ../../CloudOpsHire-backend/user-service
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/user-service:latest
     container_name: user-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
@@ -167,16 +157,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres123
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
     depends_on:
-      postgres-user:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      - postgres-user
+      - service-registry
     networks: [cloudopshire-net]
 
   job-service:
-    build:
-      context: ../../CloudOpsHire-backend/job-service
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/job-service:latest
     container_name: job-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-job:5432/job_db
@@ -184,38 +170,27 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres123
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
     depends_on:
-      postgres-job:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      - postgres-job
+      - service-registry
     networks: [cloudopshire-net]
 
   application-service:
-    build:
-      context: ../../CloudOpsHire-backend/application-service
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/application-service:latest
     container_name: application-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-app:5432/application_db
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres123
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: admin
       SPRING_RABBITMQ_PASSWORD: admin
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
     depends_on:
-      postgres-app:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      - postgres-app
+      - rabbitmq
+      - service-registry
     networks: [cloudopshire-net]
 
   notification-service:
-    build:
-      context: ../../CloudOpsHire-backend/notification-service
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/notification-service:latest
     container_name: notification-service
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -223,31 +198,27 @@ services:
       SPRING_RABBITMQ_PASSWORD: admin
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
       SPRING_MAIL_USERNAME: your-email@gmail.com
-      SPRING_MAIL_PASSWORD: your-gmail-app-password
+      SPRING_MAIL_PASSWORD: your-app-password
     depends_on:
-      rabbitmq:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      - rabbitmq
+      - service-registry
     networks: [cloudopshire-net]
 
   analytics-service:
-    build:
-      context: ../../CloudOpsHire-backend/analytics-service
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/analytics-service:latest
     container_name: analytics-service
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
     depends_on:
-      service-registry:
-        condition: service_healthy
+      - service-registry
     networks: [cloudopshire-net]
 
-  # ── Frontend ───────────────────────────────────────────────────
+  # ───────────────────────────────
+  # FRONTEND
+  # ───────────────────────────────
+
   frontend:
-    build:
-      context: ../../CloudOpsHire-Frontend/cloudopshire-ui
-      dockerfile: Dockerfile
+    image: 626209129738.dkr.ecr.ap-south-1.amazonaws.com/frontend
     container_name: cloudopshire-frontend
     ports:
       - "3000:80"
@@ -255,14 +226,17 @@ services:
       - api-gateway
     networks: [cloudopshire-net]
 
-  # ── Monitoring ─────────────────────────────────────────────────
+  # ───────────────────────────────
+  # MONITORING
+  # ───────────────────────────────
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ../../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     networks: [cloudopshire-net]
 
   grafana:
