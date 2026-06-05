@@ -1,0 +1,35 @@
+# Local metadata
+.metadata/
+.agents/
+.codex/
+
+# Archives and generated output
+*.zip
+target/
+build/
+dist/
+
+# Java
+.mvn/wrapper/maven-wrapper.jar
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.classpath
+.factorypath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+
+# Backups created while consolidating repositories
+.git-frontend-backup/
