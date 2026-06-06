@@ -17,6 +17,8 @@ spring:
           "[/**]":
             allowedOrigins:
               - "http://localhost:3000"
+              - "http://184.73.140.206:3000"
+              - "http://184.73.140.206"
 
             allowedMethods:
               - GET
